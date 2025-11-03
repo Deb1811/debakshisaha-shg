@@ -103,19 +103,27 @@ class DynamicSHGLedgerAnalyzer:
             return Image.open(image_path)
 
     def process_ledger_image(self, image_path: str) -> str:
-        """Extract text from ledger image using OCR"""
+        """Extract text from ledger image using OCR - Multi-language support"""
         try:
             if self.use_gemini:
                 processed_image = self.preprocess_image(image_path)
-                prompt = """Extract all transaction data from this SHG ledger image.
-                
-For each transaction, extract:
-- Date (format: YYYY-MM-DD)
-- Member Name
-- Transaction Type (Deposit, Loan, or Repayment)
-- Amount (number only)
+                prompt = """Extract all transaction data from this SHG ledger image. The text may be in Hindi, English, or other Indian languages.
 
-Return as plain text with each transaction on a new line in this format:
+For each transaction, extract and TRANSLATE TO ENGLISH:
+- Date (format: YYYY-MM-DD or DD-MM-YYYY)
+- Member Name (translate Hindi names to Roman script)
+- Transaction Type (translate to: Deposit, Loan, or Repayment)
+- Amount (numbers only, no currency symbols)
+
+Common Hindi terms:
+- जमा/बचत = Deposit
+- ऋण/कर्ज/लोन = Loan  
+- भुगतान/वापसी = Repayment
+- नाम = Name
+- राशि/रकम = Amount
+- तारीख = Date
+
+Return as plain text with each transaction on a new line:
 Date | Member Name | Transaction Type | Amount
 
 Example:
@@ -127,7 +135,7 @@ Example:
                 return response.text if response.text else ""
             else:
                 processed_image = self.preprocess_image(image_path)
-                config = r'--oem 3 --psm 6 -l eng+hin+tel+tam+kan+ben+guj'
+                config = r'--oem 3 --psm 6 -l hin+eng+tel+tam+kan+ben+guj'
                 return pytesseract.image_to_string(processed_image, config=config)
                 
         except Exception as e:
@@ -181,13 +189,23 @@ Example:
         raise ValueError("Could not parse any valid transactions from the ledger image")
 
     def manual_parse_text(self, extracted_text):
-        """Enhanced manual parser with multiple pattern matching"""
+        """Enhanced manual parser with Hindi support and multiple pattern matching"""
         lines = extracted_text.split("\n")
         transactions = []
 
+        # Hindi to English mappings for transaction types
+        hindi_type_map = {
+            'जमा': 'Deposit', 'बचत': 'Deposit', 'जमाराशि': 'Deposit',
+            'ऋण': 'Loan', 'कर्ज': 'Loan', 'लोन': 'Loan', 'उधार': 'Loan',
+            'भुगतान': 'Repayment', 'वापसी': 'Repayment', 'चुकौती': 'Repayment',
+            'deposit': 'Deposit', 'save': 'Deposit', 'saving': 'Deposit',
+            'loan': 'Loan', 'advance': 'Loan', 'borrow': 'Loan',
+            'repayment': 'Repayment', 'payment': 'Repayment', 'repay': 'Repayment'
+        }
+
         for line in lines:
             line = line.strip()
-            if not line or len(line) < 10:
+            if not line or len(line) < 5:
                 continue
 
             # Pattern 1: Pipe-separated format (from our Gemini prompt)
@@ -197,37 +215,75 @@ Example:
                 if len(parts) >= 4:
                     try:
                         date_str = parts[0]
-                        # Validate date format
-                        if re.match(r'\d{4}-\d{2}-\d{2}', date_str):
+                        # Validate date format (YYYY-MM-DD or DD-MM-YYYY or DD/MM/YYYY)
+                        if re.match(r'\d{2,4}[-/]\d{2}[-/]\d{2,4}', date_str):
+                            # Normalize date format
+                            date_str = self.normalize_date(date_str)
+                            
+                            # Get transaction type and normalize it
+                            trans_type = parts[2].strip()
+                            trans_type_normalized = hindi_type_map.get(trans_type.lower(), trans_type)
+                            
                             transactions.append({
                                 "Date": date_str,
                                 "Member": parts[1],
-                                "TransactionType": parts[2],
-                                "Amount": float(parts[3].replace(',', '').replace('₹', '').strip())
+                                "TransactionType": trans_type_normalized,
+                                "Amount": float(parts[3].replace(',', '').replace('₹', '').replace('/-', '').strip())
                             })
                             continue
-                    except:
+                    except Exception as e:
                         pass
 
-            # Pattern 2: Standard space-separated format
+            # Pattern 2: Standard space-separated format (English)
             pattern2 = re.compile(
-                r'(\d{4}-\d{2}-\d{2})\s+([A-Za-z\s]+?)\s+(Deposit|Loan|Repayment|Withdraw|Advance|Payment)\s+([\d,]+)',
+                r'(\d{2,4}[-/]\d{2}[-/]\d{2,4})\s+([A-Za-z\s]+?)\s+(Deposit|Loan|Repayment|Withdraw|Advance|Payment)\s+([\d,]+)',
                 re.IGNORECASE
             )
             match = pattern2.search(line)
             if match:
                 try:
                     transactions.append({
-                        "Date": match.group(1).strip(),
+                        "Date": self.normalize_date(match.group(1).strip()),
                         "Member": match.group(2).strip(),
-                        "TransactionType": match.group(3).strip(),
+                        "TransactionType": match.group(3).strip().title(),
                         "Amount": float(match.group(4).replace(",", ""))
                     })
                     continue
                 except:
                     pass
 
-            # Pattern 3: JSON-like lines
+            # Pattern 3: Hindi text format
+            # Look for Hindi transaction type keywords
+            for hindi_word, english_type in hindi_type_map.items():
+                if hindi_word in line:
+                    try:
+                        # Extract date
+                        date_match = re.search(r'(\d{2,4}[-/]\d{2}[-/]\d{2,4})', line)
+                        # Extract amount (look for numbers)
+                        amount_match = re.search(r'(\d{1,3}(?:,\d{3})*|\d+)(?:\s*(?:रुपये|₹|/-|RS))?', line)
+                        
+                        if date_match and amount_match:
+                            # Extract name (text between date and transaction type)
+                            date_pos = date_match.end()
+                            type_pos = line.find(hindi_word)
+                            
+                            if type_pos > date_pos:
+                                name_text = line[date_pos:type_pos].strip()
+                                # Clean name (remove common prefixes/suffixes)
+                                name_text = re.sub(r'(नाम|सदस्य|:)', '', name_text).strip()
+                                
+                                if name_text:
+                                    transactions.append({
+                                        "Date": self.normalize_date(date_match.group(1)),
+                                        "Member": name_text,
+                                        "TransactionType": english_type,
+                                        "Amount": float(amount_match.group(1).replace(',', ''))
+                                    })
+                                    break
+                    except:
+                        pass
+
+            # Pattern 4: JSON-like lines
             if '"date"' in line.lower() or '"member"' in line.lower():
                 try:
                     date_match = re.search(r'"date":\s*"([^"]+)"', line, re.IGNORECASE)
@@ -236,10 +292,13 @@ Example:
                     amount_match = re.search(r'"amount":\s*(\d+)', line, re.IGNORECASE)
                     
                     if all([date_match, member_match, type_match, amount_match]):
+                        trans_type = type_match.group(1)
+                        trans_type_normalized = hindi_type_map.get(trans_type.lower(), trans_type)
+                        
                         transactions.append({
-                            "Date": date_match.group(1),
+                            "Date": self.normalize_date(date_match.group(1)),
                             "Member": member_match.group(1),
-                            "TransactionType": type_match.group(1),
+                            "TransactionType": trans_type_normalized,
                             "Amount": float(amount_match.group(1))
                         })
                 except:
@@ -252,20 +311,37 @@ Example:
             print("⚠ No transactions parsed")
             return pd.DataFrame(columns=["Date", "Member", "TransactionType", "Amount"])
 
+    def normalize_date(self, date_str: str) -> str:
+        """Normalize date format to YYYY-MM-DD"""
+        try:
+            date_str = date_str.strip()
+            # Try different date formats
+            for fmt in ['%Y-%m-%d', '%d-%m-%Y', '%d/%m/%Y', '%Y/%m/%d', '%d.%m.%Y']:
+                try:
+                    date_obj = datetime.strptime(date_str, fmt)
+                    return date_obj.strftime('%Y-%m-%d')
+                except:
+                    continue
+            # If all fail, return as is
+            return date_str
+        except:
+            return date_str
+
     def clean_parsed_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Clean and standardize parsed data - IMPROVED VERSION"""
+        """Clean and standardize parsed data - Multi-language support"""
         if df.empty:
             raise ValueError("No data to process")
         
         print(f"🧹 Cleaning {len(df)} rows. Columns: {df.columns.tolist()}")
         
-        # Flexible column mapping
+        # Flexible column mapping (English + Hindi)
         column_map = {
-            'member_name': 'Member', 'member name': 'Member', 'member': 'Member', 'name': 'Member',
+            'member_name': 'Member', 'member name': 'Member', 'member': 'Member', 
+            'name': 'Member', 'नाम': 'Member', 'सदस्य': 'Member',
             'transaction_type': 'TransactionType', 'transaction type': 'TransactionType', 
-            'type': 'TransactionType', 'trans_type': 'TransactionType',
-            'amount': 'Amount', 'amt': 'Amount',
-            'date': 'Date', 'transaction_date': 'Date'
+            'type': 'TransactionType', 'trans_type': 'TransactionType', 'प्रकार': 'TransactionType',
+            'amount': 'Amount', 'amt': 'Amount', 'राशि': 'Amount', 'रकम': 'Amount',
+            'date': 'Date', 'transaction_date': 'Date', 'तारीख': 'Date'
         }
         
         # Rename columns (case-insensitive)
@@ -283,21 +359,28 @@ Example:
         
         # Clean Member names
         df['Member'] = df['Member'].astype(str).str.strip().str.title()
+        # Remove Hindi common words from names
+        df['Member'] = df['Member'].str.replace(r'(नाम|सदस्य|:', '', regex=True).str.strip()
         df = df[df['Member'].notna() & (df['Member'] != 'Nan') & (df['Member'] != '')]
         
         # Clean Amounts
         if 'Amount' in df.columns:
-            df['Amount'] = df['Amount'].astype(str).str.replace(',', '').str.replace('₹', '').str.strip()
+            df['Amount'] = df['Amount'].astype(str).str.replace(',', '').str.replace('₹', '').str.replace('रुपये', '').str.replace('/-', '').str.strip()
             df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce')
             df = df.dropna(subset=['Amount'])
             df = df[df['Amount'] > 0]
         
-        # Clean Transaction Types
+        # Clean Transaction Types (English + Hindi)
         if 'TransactionType' in df.columns:
             type_map = {
+                # English
                 'deposit': 'Repayment', 'credit': 'Repayment', 'save': 'Repayment',
                 'payment': 'Repayment', 'repay': 'Repayment', 'repayment': 'Repayment',
-                'loan': 'Loan', 'borrow': 'Loan', 'advance': 'Loan'
+                'loan': 'Loan', 'borrow': 'Loan', 'advance': 'Loan',
+                # Hindi
+                'जमा': 'Repayment', 'बचत': 'Repayment', 'जमाराशि': 'Repayment',
+                'ऋण': 'Loan', 'कर्ज': 'Loan', 'लोन': 'Loan', 'उधार': 'Loan',
+                'भुगतान': 'Repayment', 'वापसी': 'Repayment', 'चुकौती': 'Repayment'
             }
             df['TransactionType'] = df['TransactionType'].astype(str).str.lower().str.strip()
             df['TransactionType'] = df['TransactionType'].map(type_map).fillna(df['TransactionType'])
