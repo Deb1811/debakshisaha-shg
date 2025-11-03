@@ -20,6 +20,7 @@ class DynamicSHGLedgerAnalyzer:
         """Initialize the SHG Ledger Analyzer"""
         self.setup_apis(gemini_api_key)
         self.load_credit_model(model_path)
+        self.detected_language = 'english'  # Will be set during analysis
         
         self.language_patterns = {
             'hindi': ['रुपये', 'नाम', 'राशि', 'तारीख', 'सदस्य', 'बचत', 'लोन'],
@@ -29,6 +30,39 @@ class DynamicSHGLedgerAnalyzer:
             'kannada': ['ರೂಪಾಯಿ', 'ಹೆಸರು', 'ಮೊತ್ತ', 'ದಿನಾಂಕ', 'ಸದಸ್ಯ'],
             'bengali': ['টাকা', 'নাম', 'পরিমাণ', 'তারিখ', 'সদস্য'],
             'gujarati': ['રૂપિયા', 'નામ', 'રકમ', 'તારીખ', 'સભ્ય']
+        }
+        
+        # Hindi translations for output
+        self.translations = {
+            'hindi': {
+                'Member': 'सदस्य',
+                'SHG': 'एसएचजी स्कोर',
+                'Credit': 'क्रेडिट स्कोर',
+                'Behavioral': 'व्यवहार स्कोर',
+                'Inclusion': 'समावेशन स्कोर',
+                'Eligibility': 'पात्रता',
+                'MaxLoan': 'अधिकतम ऋण',
+                'Ratio': 'अनुपात',
+                'High': 'उच्च',
+                'Good': 'अच्छा',
+                'Medium': 'मध्यम',
+                'Low': 'कम',
+                'Very Low': 'बहुत कम',
+                'Excellent': 'उत्कृष्ट',
+                'Fair': 'ठीक',
+                'Poor': 'खराब',
+                'Analysis Time': 'विश्लेषण समय',
+                'Language': 'भाषा',
+                'Confidence': 'विश्वास',
+                'Total Members': 'कुल सदस्य',
+                'Total Transactions': 'कुल लेनदेन',
+                'Total Amount': 'कुल राशि',
+                'Avg SHG Score': 'औसत एसएचजी स्कोर',
+                'Avg Credit Score': 'औसत क्रेडिट स्कोर',
+                'MEMBER ANALYSIS': 'सदस्य विश्लेषण',
+                'SHG LEDGER ANALYSIS RESULTS': 'एसएचजी खाता विश्लेषण परिणाम'
+            },
+            'english': {}  # No translation needed
         }
         
         self.risk_weights = {
