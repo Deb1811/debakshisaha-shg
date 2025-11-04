@@ -40,7 +40,6 @@ export default function Chatbot() {
       const responseData = await res.json();
       setData(responseData);
       
-      // Add to history
       const historyItem = {
         id: Date.now(),
         fileName: file.name,
@@ -55,13 +54,53 @@ export default function Chatbot() {
     }
   };
 
+  // Get localized label with fallback
+  const getLabel = (key) => {
+    if (data?.labels) {
+      return data.labels[key] || key;
+    }
+    return key;
+  };
+
+  // Get header translation with fallback
+  const getHeader = (key) => {
+    if (data?.labels?.headers) {
+      return data.labels.headers[key] || key;
+    }
+    return key;
+  };
+
+  // Helper to get eligibility badge color based on translated text
+  const getEligibilityColor = (eligibility) => {
+    const eligibilityLower = eligibility?.toLowerCase() || '';
+    
+    // High / उच्च / High variants
+    if (eligibilityLower.includes('high') || eligibilityLower.includes('उच्च')) {
+      return 'bg-green-500/30 text-green-300 border border-green-500/50';
+    }
+    // Good / अच्छा / Good variants
+    if (eligibilityLower.includes('good') || eligibilityLower.includes('अच्छा')) {
+      return 'bg-blue-500/30 text-blue-300 border border-blue-500/50';
+    }
+    // Medium / मध्यम / Medium variants
+    if (eligibilityLower.includes('medium') || eligibilityLower.includes('मध्यम')) {
+      return 'bg-yellow-500/30 text-yellow-300 border border-yellow-500/50';
+    }
+    // Low / कम / Low variants
+    if (eligibilityLower.includes('low') || eligibilityLower.includes('कम')) {
+      return 'bg-red-500/30 text-red-300 border border-red-500/50';
+    }
+    // Default
+    return 'bg-gray-500/30 text-gray-300 border border-gray-500/50';
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-emerald-900 via-teal-800 to-slate-900 text-white relative overflow-hidden flex">
       {/* Sidebar */}
       <div className={`${sidebarOpen ? 'w-80' : 'w-0'} transition-all duration-300 bg-white/5 backdrop-blur-md border-r border-white/10 flex-shrink-0 overflow-hidden`}>
         <div className="h-full flex flex-col p-4">
           <div className="flex items-center justify-between mb-6">
-            <h2 className="text-xl font-bold text-white">History</h2>
+            <h2 className="text-xl font-bold text-white">{data ? getLabel('history') || 'History' : 'History'}</h2>
             <button
               onClick={() => setSidebarOpen(false)}
               className="p-2 hover:bg-white/10 rounded-lg transition-colors"
@@ -74,7 +113,9 @@ export default function Chatbot() {
           
           <div className="flex-1 overflow-y-auto space-y-3">
             {history.length === 0 ? (
-              <p className="text-white/50 text-sm text-center mt-8">No analysis history yet</p>
+              <p className="text-white/50 text-sm text-center mt-8">
+                {data ? getLabel('No analysis history yet') : 'No analysis history yet'}
+              </p>
             ) : (
               history.map((item) => (
                 <button
@@ -85,7 +126,7 @@ export default function Chatbot() {
                   <p className="text-white font-semibold text-sm truncate mb-1">{item.fileName}</p>
                   <p className="text-white/50 text-xs">{item.timestamp}</p>
                   <div className="flex gap-2 mt-2 text-xs text-white/70">
-                    <span>{item.data.total_members} members</span>
+                    <span>{item.data.total_members} {item.data.labels?.members || 'members'}</span>
                     <span>•</span>
                     <span>₹{item.data.total_amount.toLocaleString()}</span>
                   </div>
@@ -110,7 +151,6 @@ export default function Chatbot() {
 
       {/* Main Content */}
       <div className="flex-1 p-8 overflow-y-auto">
-        {/* Decorative Background */}
         <div className="absolute inset-0 opacity-10">
           <div className="absolute top-20 left-10 w-64 h-64 bg-green-400 rounded-full blur-3xl"></div>
           <div className="absolute bottom-20 right-10 w-96 h-96 bg-blue-400 rounded-full blur-3xl"></div>
@@ -125,10 +165,12 @@ export default function Chatbot() {
                 <FileText className="w-6 h-6 text-white" />
               </div>
               <h1 className="text-4xl md:text-5xl font-bold bg-gradient-to-r from-green-300 via-teal-300 to-blue-300 text-transparent bg-clip-text">
-                SHG Ledger Analyzer
+                {data ? getLabel('title') : 'SHG Ledger Analyzer'}
               </h1>
             </div>
-            <p className="text-white/70 text-lg">Upload your ledger image for AI-powered analysis</p>
+            <p className="text-white/70 text-lg">
+              {data ? getLabel('subtitle') : 'Upload your ledger image for AI-powered analysis'}
+            </p>
           </div>
 
           {/* Upload Card */}
@@ -151,12 +193,18 @@ export default function Chatbot() {
                       </div>
                     ) : (
                       <>
-                        <span className="font-semibold text-white">Click to upload</span>
-                        <span className="text-white/60"> or drag and drop</span>
+                        <span className="font-semibold text-white">
+                          {data ? getLabel('Click to upload') : 'Click to upload'}
+                        </span>
+                        <span className="text-white/60">
+                          {data ? getLabel('or drag and drop') : ' or drag and drop'}
+                        </span>
                       </>
                     )}
                   </div>
-                  <p className="text-sm text-white/50">PNG, JPG or JPEG (Max 10MB)</p>
+                  <p className="text-sm text-white/50">
+                    {data ? getLabel('PNG, JPG or JPEG (Max 10MB)') : 'PNG, JPG or JPEG (Max 10MB)'}
+                  </p>
                 </label>
               </div>
 
@@ -172,10 +220,10 @@ export default function Chatbot() {
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
                     <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
-                    Analyzing...
+                    {data ? getLabel('analyzing') : 'Analyzing...'}
                   </span>
                 ) : (
-                  "Upload and Analyze"
+                  data ? getLabel('upload_button') : 'Upload and Analyze'
                 )}
               </button>
             </div>
@@ -200,9 +248,9 @@ export default function Chatbot() {
                       <FileText className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <p className="text-sm text-white/60">Language</p>
-                      <p className="text-xl font-bold">{data.language}</p>
-                      <p className="text-xs text-white/50">{data.confidence}</p>
+                      <p className="text-sm text-white/60">{getLabel('language')}</p>
+                      <p className="text-xl font-bold capitalize">{data.language}</p>
+                      <p className="text-xs text-white/50">{getLabel('confidence')}: {data.confidence}</p>
                     </div>
                   </div>
                 </div>
@@ -213,7 +261,7 @@ export default function Chatbot() {
                       <Users className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <p className="text-sm text-white/60">Total Members</p>
+                      <p className="text-sm text-white/60">{getLabel('total_members')}</p>
                       <p className="text-xl font-bold">{data.total_members}</p>
                     </div>
                   </div>
@@ -225,7 +273,7 @@ export default function Chatbot() {
                       <TrendingUp className="w-5 h-5 text-white" />
                     </div>
                     <div>
-                      <p className="text-sm text-white/60">Total Transactions</p>
+                      <p className="text-sm text-white/60">{getLabel('total_transactions')}</p>
                       <p className="text-xl font-bold">{data.total_transactions}</p>
                     </div>
                   </div>
@@ -237,7 +285,7 @@ export default function Chatbot() {
                       <span className="text-white font-bold">₹</span>
                     </div>
                     <div>
-                      <p className="text-sm text-white/60">Total Amount</p>
+                      <p className="text-sm text-white/60">{getLabel('total_amount')}</p>
                       <p className="text-xl font-bold">₹{data.total_amount.toLocaleString()}</p>
                     </div>
                   </div>
@@ -249,7 +297,7 @@ export default function Chatbot() {
                       <span className="text-white font-bold text-lg">S</span>
                     </div>
                     <div>
-                      <p className="text-sm text-white/60">Avg SHG Score</p>
+                      <p className="text-sm text-white/60">{getLabel('avg_shg_score')}</p>
                       <p className="text-xl font-bold">{data.avg_shg_score}/100</p>
                     </div>
                   </div>
@@ -261,7 +309,7 @@ export default function Chatbot() {
                       <span className="text-white font-bold text-lg">C</span>
                     </div>
                     <div>
-                      <p className="text-sm text-white/60">Avg Credit Score</p>
+                      <p className="text-sm text-white/60">{getLabel('avg_credit_score')}</p>
                       <p className="text-xl font-bold">{data.avg_credit_score}</p>
                     </div>
                   </div>
@@ -273,20 +321,20 @@ export default function Chatbot() {
                 <div className="bg-white/10 backdrop-blur-md border border-white/20 rounded-2xl p-8">
                   <h3 className="text-2xl font-bold mb-6 flex items-center gap-3">
                     <Users className="w-7 h-7 text-green-300" />
-                    Member Analysis
+                    {getLabel('member_analysis_title')}
                   </h3>
                   <div className="overflow-x-auto">
                     <table className="min-w-full text-sm">
                       <thead>
                         <tr className="border-b border-white/20">
-                          <th className="px-4 py-3 text-left font-semibold text-white/90">Member</th>
-                          <th className="px-4 py-3 text-left font-semibold text-white/90">SHG</th>
-                          <th className="px-4 py-3 text-left font-semibold text-white/90">Credit</th>
-                          <th className="px-4 py-3 text-left font-semibold text-white/90">Behavioral</th>
-                          <th className="px-4 py-3 text-left font-semibold text-white/90">Inclusion</th>
-                          <th className="px-4 py-3 text-left font-semibold text-white/90">Eligibility</th>
-                          <th className="px-4 py-3 text-left font-semibold text-white/90">Max Loan</th>
-                          <th className="px-4 py-3 text-left font-semibold text-white/90">Ratio</th>
+                          <th className="px-4 py-3 text-left font-semibold text-white/90">{getHeader('Member')}</th>
+                          <th className="px-4 py-3 text-left font-semibold text-white/90">{getHeader('SHG')}</th>
+                          <th className="px-4 py-3 text-left font-semibold text-white/90">{getHeader('Credit')}</th>
+                          <th className="px-4 py-3 text-left font-semibold text-white/90">{getHeader('Behavioral')}</th>
+                          <th className="px-4 py-3 text-left font-semibold text-white/90">{getHeader('Inclusion')}</th>
+                          <th className="px-4 py-3 text-left font-semibold text-white/90">{getHeader('Eligibility')}</th>
+                          <th className="px-4 py-3 text-left font-semibold text-white/90">{getHeader('MaxLoan')}</th>
+                          <th className="px-4 py-3 text-left font-semibold text-white/90">{getHeader('Ratio')}</th>
                         </tr>
                       </thead>
                       <tbody>
@@ -297,18 +345,15 @@ export default function Chatbot() {
                               idx % 2 === 0 ? 'bg-white/5' : ''
                             }`}
                           >
-                            <td className="px-4 py-3 font-semibold text-white">{m.Member}</td>
+                            <td className="px-4 py-3 font-semibold text-white" style={{fontFamily: data.language === 'hindi' ? 'system-ui' : 'inherit'}}>
+                              {m.Member}
+                            </td>
                             <td className="px-4 py-3 text-white/80">{m.SHG}</td>
                             <td className="px-4 py-3 text-white/80">{m.Credit}</td>
                             <td className="px-4 py-3 text-white/80">{m.Behavioral}</td>
                             <td className="px-4 py-3 text-white/80">{m.Inclusion}</td>
                             <td className="px-4 py-3">
-                              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
-                                m.Eligibility === 'High' ? 'bg-green-500/30 text-green-300 border border-green-500/50' :
-                                m.Eligibility === 'Good' ? 'bg-blue-500/30 text-blue-300 border border-blue-500/50' :
-                                m.Eligibility === 'Medium' ? 'bg-yellow-500/30 text-yellow-300 border border-yellow-500/50' :
-                                'bg-red-500/30 text-red-300 border border-red-500/50'
-                              }`}>
+                              <span className={`px-3 py-1 rounded-full text-xs font-semibold ${getEligibilityColor(m.Eligibility)}`}>
                                 {m.Eligibility}
                               </span>
                             </td>

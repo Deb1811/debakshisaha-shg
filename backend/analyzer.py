@@ -20,21 +20,51 @@ class DynamicSHGLedgerAnalyzer:
         """Initialize the SHG Ledger Analyzer"""
         self.setup_apis(gemini_api_key)
         self.load_credit_model(model_path)
-        self.detected_language = 'english'  # Will be set during analysis
+        self.detected_language = 'english'
         
+        # Enhanced language patterns with weights
         self.language_patterns = {
-            'hindi': ['रुपये', 'नाम', 'राशि', 'तारीख', 'सदस्य', 'बचत', 'लोन'],
-            'english': ['rupees', 'name', 'amount', 'date', 'member', 'savings', 'loan'],
-            'tamil': ['ரூபாய்', 'பெயர்', 'தொகை', 'தேதி', 'உறுப்பினர்'],
-            'telugu': ['రూపాయలు', 'పేరు', 'మొత్తం', 'తేదీ', 'సభ్యుడు'],
-            'kannada': ['ರೂಪಾಯಿ', 'ಹೆಸರು', 'ಮೊತ್ತ', 'ದಿನಾಂಕ', 'ಸದಸ್ಯ'],
-            'bengali': ['টাকা', 'নাম', 'পরিমাণ', 'তারিখ', 'সদস্য'],
-            'gujarati': ['રૂપિયા', 'નામ', 'રકમ', 'તારીખ', 'સભ્ય']
+            'hindi': {
+                'keywords': ['रुपये', 'नाम', 'राशि', 'तारीख', 'सदस्य', 'बचत', 'लोन', 'जमा', 'ऋण', 'कर्ज', 'भुगतान'],
+                'script_range': (0x0900, 0x097F),  # Devanagari script range
+                'weight': 1.5
+            },
+            'english': {
+                'keywords': ['rupees', 'name', 'amount', 'date', 'member', 'savings', 'loan', 'deposit', 'repayment'],
+                'script_range': (0x0041, 0x007A),  # Latin script
+                'weight': 1.0
+            },
+            'tamil': {
+                'keywords': ['ரூபாய்', 'பெயர்', 'தொகை', 'தேதி', 'உறுப்பினர்', 'சேமிப்பு', 'கடன்'],
+                'script_range': (0x0B80, 0x0BFF),
+                'weight': 1.5
+            },
+            'telugu': {
+                'keywords': ['రూపాయలు', 'పేరు', 'మొత్తం', 'తేదీ', 'సభ్యుడు', 'పొదుపు', 'రుణం'],
+                'script_range': (0x0C00, 0x0C7F),
+                'weight': 1.5
+            },
+            'kannada': {
+                'keywords': ['ರೂಪಾಯಿ', 'ಹೆಸರು', 'ಮೊತ್ತ', 'ದಿನಾಂಕ', 'ಸದಸ್ಯ', 'ಉಳಿತಾಯ', 'ಸಾಲ'],
+                'script_range': (0x0C80, 0x0CFF),
+                'weight': 1.5
+            },
+            'bengali': {
+                'keywords': ['টাকা', 'নাম', 'পরিমাণ', 'তারিখ', 'সদস্য', 'সঞ্চয়', 'ঋণ'],
+                'script_range': (0x0980, 0x09FF),
+                'weight': 1.5
+            },
+            'gujarati': {
+                'keywords': ['રૂપિયા', 'નામ', 'રકમ', 'તારીખ', 'સભ્ય', 'બચત', 'લોન'],
+                'script_range': (0x0A80, 0x0AFF),
+                'weight': 1.5
+            }
         }
         
-        # Hindi translations for output
+        # Comprehensive translations for all output text
         self.translations = {
             'hindi': {
+                # Table headers
                 'Member': 'सदस्य',
                 'SHG': 'एसएचजी स्कोर',
                 'Credit': 'क्रेडिट स्कोर',
@@ -43,6 +73,8 @@ class DynamicSHGLedgerAnalyzer:
                 'Eligibility': 'पात्रता',
                 'MaxLoan': 'अधिकतम ऋण',
                 'Ratio': 'अनुपात',
+                
+                # Eligibility categories
                 'High': 'उच्च',
                 'Good': 'अच्छा',
                 'Medium': 'मध्यम',
@@ -51,16 +83,135 @@ class DynamicSHGLedgerAnalyzer:
                 'Excellent': 'उत्कृष्ट',
                 'Fair': 'ठीक',
                 'Poor': 'खराब',
-                'Analysis Time': 'विश्लेषण समय',
+                
+                # Labels
                 'Language': 'भाषा',
-                'Confidence': 'विश्वास',
+                'Confidence': 'विश्वास स्तर',
                 'Total Members': 'कुल सदस्य',
                 'Total Transactions': 'कुल लेनदेन',
                 'Total Amount': 'कुल राशि',
                 'Avg SHG Score': 'औसत एसएचजी स्कोर',
                 'Avg Credit Score': 'औसत क्रेडिट स्कोर',
+                'Analysis Time': 'विश्लेषण समय',
+                
+                # Titles
+                'SHG LEDGER ANALYSIS RESULTS': 'एसएचजी खाता विश्लेषण परिणाम',
                 'MEMBER ANALYSIS': 'सदस्य विश्लेषण',
-                'SHG LEDGER ANALYSIS RESULTS': 'एसएचजी खाता विश्लेषण परिणाम'
+                'SHG Ledger Analyzer': 'एसएचजी खाता विश्लेषक',
+                'Upload your ledger image for AI-powered analysis': 'एआई-संचालित विश्लेषण के लिए अपनी खाता छवि अपलोड करें',
+                'Upload and Analyze': 'अपलोड करें और विश्लेषण करें',
+                'Analyzing...': 'विश्लेषण हो रहा है...',
+                'History': 'इतिहास',
+                'members': 'सदस्य',
+                
+                # Transaction types
+                'Deposit': 'जमा',
+                'Loan': 'ऋण',
+                'Repayment': 'भुगतान',
+                
+                # Additional UI elements
+                'No analysis history yet': 'अभी तक कोई विश्लेषण इतिहास नहीं है',
+                'Click to upload': 'अपलोड करने के लिए क्लिक करें',
+                'or drag and drop': 'या ड्रैग और ड्रॉप करें',
+                'PNG, JPG or JPEG (Max 10MB)': 'पीएनजी, जेपीजी या जेपीईजी (अधिकतम 10एमबी)',
+                'Error analyzing ledger': 'खाता विश्लेषण में त्रुटि',
+                'Please select a file first!': 'कृपया पहले एक फ़ाइल चुनें!',
+                'No valid member data could be extracted from the ledger image. Please ensure the image is clear and contains transaction data.': 'खाता छवि से कोई वैध सदस्य डेटा निकाला नहीं जा सका। कृपया सुनिश्चित करें कि छवि स्पष्ट है और लेनदेन डेटा है।',
+            },
+            'tamil': {
+                'Member': 'உறுப்பினர்',
+                'SHG': 'எஸ்.எச்.ஜி மதிப்பெண்',
+                'Credit': 'கடன் மதிப்பெண்',
+                'Behavioral': 'நடத்தை மதிப்பெண்',
+                'Inclusion': 'உள்ளடக்க மதிப்பெண்',
+                'Eligibility': 'தகுதி',
+                'MaxLoan': 'அதிகபட்ச கடன்',
+                'Ratio': 'விகிதம்',
+                'High': 'உயர்',
+                'Good': 'நல்ல',
+                'Medium': 'நடுத்தர',
+                'Low': 'குறைந்த',
+                'Very Low': 'மிகக் குறைந்த',
+                'Language': 'மொழி',
+                'Confidence': 'நம்பிக்கை',
+                'Total Members': 'மொத்த உறுப்பினர்கள்',
+                'Total Transactions': 'மொத்த பரிவர்த்தனைகள்',
+                'Total Amount': 'மொத்த தொகை',
+                'SHG Ledger Analyzer': 'எஸ்.எச்.ஜி கணக்கு பகுப்பாய்வி',
+                'Deposit': 'வைப்பு',
+                'Loan': 'கடன்',
+                'Repayment': 'திருப்பிச் செலுத்துதல்'
+            },
+            'telugu': {
+                'Member': 'సభ్యుడు',
+                'SHG': 'ఎస్.హెచ్.జి స్కోర్',
+                'Credit': 'క్రెడిట్ స్కోర్',
+                'Behavioral': 'ప్రవర్తన స్కోర్',
+                'Inclusion': 'చేర్పు స్కోర్',
+                'Eligibility': 'అర్హత',
+                'MaxLoan': 'గరిష్ట రుణం',
+                'Ratio': 'నిష్పత్తి',
+                'High': 'అధిక',
+                'Good': 'మంచి',
+                'Medium': 'మధ్యస్థ',
+                'Low': 'తక్కువ',
+                'Language': 'భాష',
+                'Total Members': 'మొత్తం సభ్యులు',
+                'Total Transactions': 'మొత్తం లావాదేవీలు',
+                'SHG Ledger Analyzer': 'ఎస్.హెచ్.జి ఖాతా విశ్లేషణ',
+                'Deposit': 'డిపాజిట్',
+                'Loan': 'రుణం',
+                'Repayment': 'తిరిగి చెల్లింపు'
+            },
+            'kannada': {
+                'Member': 'ಸದಸ್ಯ',
+                'SHG': 'ಎಸ್.ಹೆಚ್.ಜಿ ಸ್ಕೋರ್',
+                'Credit': 'ಕ್ರೆಡಿಟ್ ಸ್ಕೋರ್',
+                'Behavioral': 'ವರ್ತನೆ ಸ್ಕೋರ್',
+                'Eligibility': 'ಅರ್ಹತೆ',
+                'MaxLoan': 'ಗರಿಷ್ಠ ಸಾಲ',
+                'High': 'ಹೆಚ್ಚು',
+                'Good': 'ಉತ್ತಮ',
+                'Medium': 'ಮಧ್ಯಮ',
+                'Low': 'ಕಡಿಮೆ',
+                'Language': 'ಭಾಷೆ',
+                'Total Members': 'ಒಟ್ಟು ಸದಸ್ಯರು',
+                'SHG Ledger Analyzer': 'ಎಸ್.ಹೆಚ್.ಜಿ ಖಾತೆ ವಿಶ್ಲೇಷಕ',
+                'Deposit': 'ಠೇವಣಿ',
+                'Loan': 'ಸಾಲ',
+                'Repayment': 'ಮರುಪಾವತಿ'
+            },
+            'bengali': {
+                'Member': 'সদস্য',
+                'SHG': 'এসএইচজি স্কোর',
+                'Credit': 'ক্রেডিট স্কোর',
+                'Eligibility': 'যোগ্যতা',
+                'High': 'উচ্চ',
+                'Good': 'ভাল',
+                'Medium': 'মাঝারি',
+                'Low': 'কম',
+                'Language': 'ভাষা',
+                'Total Members': 'মোট সদস্য',
+                'SHG Ledger Analyzer': 'এসএইচজি খাতা বিশ্লেষক',
+                'Deposit': 'জমা',
+                'Loan': 'ঋণ',
+                'Repayment': 'পরিশোধ'
+            },
+            'gujarati': {
+                'Member': 'સભ્ય',
+                'SHG': 'એસએચજી સ્કોર',
+                'Credit': 'ક્રેડિટ સ્કોર',
+                'Eligibility': 'યોગ્યતા',
+                'High': 'ઉચ્ચ',
+                'Good': 'સારું',
+                'Medium': 'મધ્યમ',
+                'Low': 'નીચું',
+                'Language': 'ભાષા',
+                'Total Members': 'કુલ સભ્યો',
+                'SHG Ledger Analyzer': 'એસએચજી ખાતા વિશ્લેષક',
+                'Deposit': 'થાપણ',
+                'Loan': 'લોન',
+                'Repayment': 'ચુકવણી'
             },
             'english': {}  # No translation needed
         }
@@ -100,20 +251,79 @@ class DynamicSHGLedgerAnalyzer:
             self.credit_model = None
 
     def detect_language(self, text: str) -> Tuple[str, float]:
-        """Detect primary language of the ledger"""
+        """Enhanced language detection using multiple methods"""
         language_scores = {}
+        text_lower = text.lower()
         
-        for lang, patterns in self.language_patterns.items():
-            score = sum(1 for pattern in patterns if pattern.lower() in text.lower())
-            language_scores[lang] = score
+        # Initialize scores
+        for lang in self.language_patterns.keys():
+            language_scores[lang] = 0
         
-        if not any(language_scores.values()):
-            return 'english', 0.5
+        # Method 1: Unicode script detection (MOST IMPORTANT - weighted heavily)
+        total_chars = max(len([c for c in text if not c.isspace() and not c.isdigit()]), 1)
         
-        detected_lang = max(language_scores, key=language_scores.get)
-        confidence = language_scores[detected_lang] / len(self.language_patterns[detected_lang])
+        for lang, config in self.language_patterns.items():
+            script_start, script_end = config['script_range']
+            script_chars = sum(1 for char in text if script_start <= ord(char) <= script_end)
+            script_percentage = script_chars / total_chars
+            
+            # Heavy weight for script detection
+            language_scores[lang] += script_percentage * 100 * config['weight']
+        
+        # Method 2: Keyword matching
+        for lang, config in self.language_patterns.items():
+            keyword_count = sum(1 for keyword in config['keywords'] if keyword in text_lower)
+            language_scores[lang] += keyword_count * 5 * config['weight']
+        
+        # Method 3: Specific Hindi patterns (boost Hindi detection)
+        hindi_indicators = ['दिनांक', 'सदस्य', 'लेनदेन', 'प्रकार', 'राशि', 'शेष', 'देवी', 'सिंह', 
+                           'जमा', 'ऋण', 'कर्ज', 'भुगतान', 'चुकौती', 'बचत', 'उमा', 'रमा', 'मोहन']
+        hindi_pattern_count = sum(1 for indicator in hindi_indicators if indicator in text)
+        if hindi_pattern_count > 0:
+            language_scores['hindi'] += hindi_pattern_count * 10
+        
+        # Method 4: Check for Devanagari numerals and characters
+        devanagari_chars = sum(1 for char in text if '\u0900' <= char <= '\u097F')
+        if devanagari_chars > 10:  # Significant Hindi content
+            language_scores['hindi'] += 50
+        
+        # Method 5: English patterns (only boost if significant English content)
+        english_words = re.findall(r'\b[a-zA-Z]{3,}\b', text)
+        if len(english_words) > 5:
+            language_scores['english'] += len(english_words) * 2
+        
+        print(f"🔍 Language Detection Scores: {language_scores}")
+        print(f"📊 Total non-space chars: {total_chars}, Devanagari chars: {devanagari_chars}")
+        
+        if not any(language_scores.values()) or max(language_scores.values()) == 0:
+            detected_lang = 'english'
+            confidence = 0.5
+        else:
+            detected_lang = max(language_scores, key=language_scores.get)
+            max_score = language_scores[detected_lang]
+            total_score = sum(language_scores.values())
+            confidence = min(max_score / max(total_score, 1), 0.99)
+            
+            # Boost confidence if clear Hindi script
+            if detected_lang == 'hindi' and devanagari_chars > 20:
+                confidence = max(confidence, 0.85)
+        
+        # Store detected language for translation
+        self.detected_language = detected_lang
+        
+        print(f"✅ Detected Language: {detected_lang.upper()} (confidence: {confidence:.2f})")
         
         return detected_lang, confidence
+
+    def translate(self, text: str, lang: str = None) -> str:
+        """Translate text to detected language"""
+        if lang is None:
+            lang = self.detected_language
+        
+        if lang == 'english' or lang not in self.translations:
+            return text
+        
+        return self.translations[lang].get(text, text)
 
     def preprocess_image(self, image_path: str) -> Image.Image:
         """Preprocess image for better OCR"""
@@ -141,32 +351,53 @@ class DynamicSHGLedgerAnalyzer:
         try:
             if self.use_gemini:
                 processed_image = self.preprocess_image(image_path)
-                prompt = """Extract all transaction data from this SHG ledger image. The text may be in Hindi, English, or other Indian languages.
+                prompt = """Extract ALL transaction data from this SHG (Self Help Group) ledger image. 
 
-For each transaction, extract and TRANSLATE TO ENGLISH:
-- Date (format: YYYY-MM-DD or DD-MM-YYYY)
-- Member Name (translate Hindi names to Roman script)
-- Transaction Type (translate to: Deposit, Loan, or Repayment)
-- Amount (numbers only, no currency symbols)
+CRITICAL: Preserve the ORIGINAL script/language of member names. DO NOT transliterate.
 
-Common Hindi terms:
-- जमा/बचत = Deposit
-- ऋण/कर्ज/लोन = Loan  
-- भुगतान/वापसी = Repayment
-- नाम = Name
-- राशि/रकम = Amount
-- तारीख = Date
+For HINDI ledgers (देवनागरी script):
+- Extract: दिनांक (Date), सदस्य नाम (Member Name - KEEP IN HINDI), लेनदेन प्रकार (Transaction Type), राशि (Amount)
+- IMPORTANT: Keep names exactly as written: रमा देवी, मोहन सिंह, सीता देवी (do NOT convert to Rama Devi, Mohan Singh, etc.)
+- Common Hindi terms: जमा/बचत=Deposit, ऋण/कर्ज/लोन=Loan, भुगतान/वापसी/चुकौती=Repayment
 
-Return as plain text with each transaction on a new line:
-Date | Member Name | Transaction Type | Amount
+For ENGLISH ledgers:
+- Extract: Date, Member Name, Transaction Type, Amount
+- Keep names as written in English
 
-Example:
-2023-01-10 | Sita Devi | Deposit | 500
-2023-01-15 | Radha Kumari | Loan | 50000"""
+OUTPUT FORMAT (pipe-separated):
+Date | Member Name (ORIGINAL SCRIPT) | Transaction Type (English) | Amount
+
+Examples for HINDI ledger:
+Hindi Input: 2024-01 | रमा देवी | जमा | 800
+Output: 2024-01-01 | रमा देवी | Deposit | 800
+
+Hindi Input: 2024-03 | मोहन सिंह | ऋण | 5000  
+Output: 2024-03-01 | मोहन सिंह | Loan | 5000
+
+For TAMIL ledger:
+Tamil Input: 2024-01 | சீதா தேவி | வைப்பு | 500
+Output: 2024-01-01 | சீதா தேவி | Deposit | 500
+
+CRITICAL RULES:
+1. DO NOT transliterate names - keep original script (रमा देवी NOT Rama Devi)
+2. Convert dates to YYYY-MM-DD format
+3. Translate transaction types to English: Deposit, Loan, or Repayment
+4. Extract numeric amounts only"""
                 
                 time.sleep(1)
                 response = self.model.generate_content([prompt, processed_image])
-                return response.text if response.text else ""
+                extracted_text = response.text if response.text else ""
+                
+                # Also get raw OCR text for language detection
+                processed_image_pil = self.preprocess_image(image_path)
+                config = r'--oem 3 --psm 6 -l hin+eng+tel+tam+kan+ben+guj'
+                raw_ocr_text = pytesseract.image_to_string(processed_image_pil, config=config)
+                
+                # Combine both for better language detection
+                combined_text = raw_ocr_text + "\n" + extracted_text
+                print(f"📝 Raw OCR sample: {raw_ocr_text[:200]}")
+                
+                return combined_text
             else:
                 processed_image = self.preprocess_image(image_path)
                 config = r'--oem 3 --psm 6 -l hin+eng+tel+tam+kan+ben+guj'
@@ -181,15 +412,13 @@ Example:
         if not extracted_text.strip():
             raise ValueError("No text extracted from image. Please provide a valid ledger image.")
         
-        print(f"📄 Extracted text sample:\n{extracted_text[:300]}\n")
+        print(f"📄 Extracted text sample:\n{extracted_text[:500]}\n")
         
-        # Try manual parsing first (more reliable)
         df = self.manual_parse_text(extracted_text)
         
         if not df.empty:
             return df
             
-        # If manual parsing failed and Gemini is available, try structured parsing
         if self.use_gemini:
             try:
                 print("🤖 Trying Gemini structured parsing...")
@@ -203,8 +432,6 @@ Example:
                 response = self.model.generate_content(parsing_prompt)
                 if response.text:
                     json_text = response.text.strip()
-                    
-                    # Remove markdown
                     json_text = re.sub(r'^```json\s*', '', json_text)
                     json_text = re.sub(r'^```\s*', '', json_text)
                     json_text = re.sub(r'\s*```$', '', json_text)
@@ -223,16 +450,38 @@ Example:
         raise ValueError("Could not parse any valid transactions from the ledger image")
 
     def manual_parse_text(self, extracted_text):
-        """Enhanced manual parser with Hindi support and multiple pattern matching"""
+        """Enhanced manual parser with multi-language support - PRESERVES ORIGINAL NAMES"""
         lines = extracted_text.split("\n")
         transactions = []
 
-        # Hindi to English mappings for transaction types
-        hindi_type_map = {
+        # Multi-language transaction type mappings
+        type_mappings = {
+            # Hindi
             'जमा': 'Deposit', 'बचत': 'Deposit', 'जमाराशि': 'Deposit',
             'ऋण': 'Loan', 'कर्ज': 'Loan', 'लोन': 'Loan', 'उधार': 'Loan',
             'भुगतान': 'Repayment', 'वापसी': 'Repayment', 'चुकौती': 'Repayment',
-            'deposit': 'Deposit', 'save': 'Deposit', 'saving': 'Deposit',
+            # Tamil
+            'வைப்பு': 'Deposit', 'சேமிப்பு': 'Deposit',
+            'கடன்': 'Loan',
+            'திருப்பிச்': 'Repayment', 'செலுத்துதல்': 'Repayment',
+            # Telugu
+            'డిపాజిట్': 'Deposit', 'పొదుపు': 'Deposit',
+            'రుణం': 'Loan',
+            'తిరిగి': 'Repayment', 'చెల్లింపు': 'Repayment',
+            # Kannada
+            'ಠೇವಣಿ': 'Deposit', 'ಉಳಿತಾಯ': 'Deposit',
+            'ಸಾಲ': 'Loan',
+            'ಮರುಪಾವತಿ': 'Repayment',
+            # Bengali
+            'জমা': 'Deposit', 'সঞ্চয়': 'Deposit',
+            'ঋণ': 'Loan',
+            'পরিশোধ': 'Repayment',
+            # Gujarati
+            'થાપણ': 'Deposit', 'બચત': 'Deposit',
+            'લોન': 'Loan',
+            'ચુકવણી': 'Repayment',
+            # English
+            'deposit': 'Deposit', 'save': 'Deposit', 'saving': 'Deposit', 'credit': 'Deposit',
             'loan': 'Loan', 'advance': 'Loan', 'borrow': 'Loan',
             'repayment': 'Repayment', 'payment': 'Repayment', 'repay': 'Repayment'
         }
@@ -242,104 +491,63 @@ Example:
             if not line or len(line) < 5:
                 continue
 
-            # Pattern 1: Pipe-separated format (from our Gemini prompt)
-            # 2023-01-10 | Sita Devi | Deposit | 500
+            # Pattern 1: Pipe-separated format (PRESERVES ORIGINAL NAMES)
             if '|' in line:
                 parts = [p.strip() for p in line.split('|')]
                 if len(parts) >= 4:
                     try:
                         date_str = parts[0]
-                        # Validate date format (YYYY-MM-DD or DD-MM-YYYY or DD/MM/YYYY)
                         if re.match(r'\d{2,4}[-/]\d{2}[-/]\d{2,4}', date_str):
-                            # Normalize date format
                             date_str = self.normalize_date(date_str)
                             
-                            # Get transaction type and normalize it
+                            # KEEP ORIGINAL NAME - don't transliterate
+                            member_name = parts[1].strip()
+                            
                             trans_type = parts[2].strip()
-                            trans_type_normalized = hindi_type_map.get(trans_type.lower(), trans_type)
+                            trans_type_normalized = type_mappings.get(trans_type.lower(), trans_type)
                             
                             transactions.append({
                                 "Date": date_str,
-                                "Member": parts[1],
+                                "Member": member_name,  # Original script preserved
                                 "TransactionType": trans_type_normalized,
                                 "Amount": float(parts[3].replace(',', '').replace('₹', '').replace('/-', '').strip())
                             })
                             continue
-                    except Exception as e:
+                    except:
                         pass
 
-            # Pattern 2: Standard space-separated format (English)
-            pattern2 = re.compile(
-                r'(\d{2,4}[-/]\d{2}[-/]\d{2,4})\s+([A-Za-z\s]+?)\s+(Deposit|Loan|Repayment|Withdraw|Advance|Payment)\s+([\d,]+)',
-                re.IGNORECASE
-            )
-            match = pattern2.search(line)
-            if match:
-                try:
-                    transactions.append({
-                        "Date": self.normalize_date(match.group(1).strip()),
-                        "Member": match.group(2).strip(),
-                        "TransactionType": match.group(3).strip().title(),
-                        "Amount": float(match.group(4).replace(",", ""))
-                    })
-                    continue
-                except:
-                    pass
-
-            # Pattern 3: Hindi text format
-            # Look for Hindi transaction type keywords
-            for hindi_word, english_type in hindi_type_map.items():
-                if hindi_word in line:
+            # Pattern 2: Extract with native script names preserved
+            for keyword, trans_type in type_mappings.items():
+                if keyword in line.lower():
                     try:
-                        # Extract date
                         date_match = re.search(r'(\d{2,4}[-/]\d{2}[-/]\d{2,4})', line)
-                        # Extract amount (look for numbers)
-                        amount_match = re.search(r'(\d{1,3}(?:,\d{3})*|\d+)(?:\s*(?:रुपये|₹|/-|RS))?', line)
+                        amount_match = re.search(r'(\d{1,3}(?:,\d{3})*|\d+)(?:\s*(?:रुपये|₹|/-|RS|రూపాయలు|ரூபாய்|ರೂಪಾಯಿ|টাকা|રૂપિયા))?', line)
                         
                         if date_match and amount_match:
-                            # Extract name (text between date and transaction type)
                             date_pos = date_match.end()
-                            type_pos = line.find(hindi_word)
+                            type_pos = line.lower().find(keyword)
                             
                             if type_pos > date_pos:
+                                # Extract name in ORIGINAL SCRIPT (Hindi, Tamil, etc.)
                                 name_text = line[date_pos:type_pos].strip()
-                                # Clean name (remove common prefixes/suffixes)
-                                name_text = re.sub(r'(नाम|सदस्य|:)', '', name_text).strip()
                                 
-                                if name_text:
+                                # Only remove these specific label words, keep actual names
+                                name_text = re.sub(r'\b(नाम|सदस्य|name|member|:)\b', '', name_text, flags=re.IGNORECASE).strip()
+                                
+                                # Keep names in original script (रमा देवी, மோகன், etc.)
+                                if name_text and len(name_text) > 1:
                                     transactions.append({
                                         "Date": self.normalize_date(date_match.group(1)),
-                                        "Member": name_text,
-                                        "TransactionType": english_type,
+                                        "Member": name_text,  # ORIGINAL SCRIPT
+                                        "TransactionType": trans_type,
                                         "Amount": float(amount_match.group(1).replace(',', ''))
                                     })
                                     break
                     except:
                         pass
 
-            # Pattern 4: JSON-like lines
-            if '"date"' in line.lower() or '"member"' in line.lower():
-                try:
-                    date_match = re.search(r'"date":\s*"([^"]+)"', line, re.IGNORECASE)
-                    member_match = re.search(r'"member(?:\s*name)?":\s*"([^"]+)"', line, re.IGNORECASE)
-                    type_match = re.search(r'"(?:transaction[\s_]?)?type":\s*"([^"]+)"', line, re.IGNORECASE)
-                    amount_match = re.search(r'"amount":\s*(\d+)', line, re.IGNORECASE)
-                    
-                    if all([date_match, member_match, type_match, amount_match]):
-                        trans_type = type_match.group(1)
-                        trans_type_normalized = hindi_type_map.get(trans_type.lower(), trans_type)
-                        
-                        transactions.append({
-                            "Date": self.normalize_date(date_match.group(1)),
-                            "Member": member_match.group(1),
-                            "TransactionType": trans_type_normalized,
-                            "Amount": float(amount_match.group(1))
-                        })
-                except:
-                    pass
-
         if transactions:
-            print(f"✅ Parsed {len(transactions)} transactions")
+            print(f"✅ Parsed {len(transactions)} transactions (names in original script)")
             return pd.DataFrame(transactions)
         else:
             print("⚠ No transactions parsed")
@@ -349,78 +557,70 @@ Example:
         """Normalize date format to YYYY-MM-DD"""
         try:
             date_str = date_str.strip()
-            # Try different date formats
             for fmt in ['%Y-%m-%d', '%d-%m-%Y', '%d/%m/%Y', '%Y/%m/%d', '%d.%m.%Y']:
                 try:
                     date_obj = datetime.strptime(date_str, fmt)
                     return date_obj.strftime('%Y-%m-%d')
                 except:
                     continue
-            # If all fail, return as is
             return date_str
         except:
             return date_str
 
     def clean_parsed_data(self, df: pd.DataFrame) -> pd.DataFrame:
-        """Clean and standardize parsed data - Multi-language support"""
+        """Clean and standardize parsed data - PRESERVES ORIGINAL SCRIPT NAMES"""
         if df.empty:
             raise ValueError("No data to process")
         
         print(f"🧹 Cleaning {len(df)} rows. Columns: {df.columns.tolist()}")
         
-        # Flexible column mapping (English + Hindi)
         column_map = {
             'member_name': 'Member', 'member name': 'Member', 'member': 'Member', 
-            'name': 'Member', 'नाम': 'Member', 'सदस्य': 'Member',
+            'name': 'Member', 'नाम': 'Member', 'सदस्य': 'Member', 'పేరు': 'Member',
+            'பெயர்': 'Member', 'ಹೆಸರು': 'Member', 'নাম': 'Member', 'નામ': 'Member',
             'transaction_type': 'TransactionType', 'transaction type': 'TransactionType', 
-            'type': 'TransactionType', 'trans_type': 'TransactionType', 'प्रकार': 'TransactionType',
-            'amount': 'Amount', 'amt': 'Amount', 'राशि': 'Amount', 'रकम': 'Amount',
+            'type': 'TransactionType', 'trans_type': 'TransactionType',
+            'amount': 'Amount', 'amt': 'Amount', 'राशि': 'Amount', 'రకం': 'Amount',
+            'தொகை': 'Amount', 'ಮೊತ್ತ': 'Amount', 'পরিমাণ': 'Amount', 'રકમ': 'Amount',
             'date': 'Date', 'transaction_date': 'Date', 'तारीख': 'Date'
         }
         
-        # Rename columns (case-insensitive)
         df.columns = df.columns.str.strip()
         df_lower = df.rename(columns=lambda x: x.lower().strip())
         for old_col, new_col in column_map.items():
             if old_col in df_lower.columns:
                 df = df.rename(columns={df.columns[df_lower.columns.get_loc(old_col)]: new_col})
         
-        # Ensure required columns exist
         required_cols = ['Member', 'TransactionType', 'Amount']
         for col in required_cols:
             if col not in df.columns:
                 raise ValueError(f"Missing required column: {col}")
         
-        # Clean Member names
-        df['Member'] = df['Member'].astype(str).str.strip().str.title()
-        # Remove Hindi common words from names
-        df['Member'] = df['Member'].str.replace(r'(नाम|सदस्य|:', '', regex=True).str.strip()
-        df = df[df['Member'].notna() & (df['Member'] != 'Nan') & (df['Member'] != '')]
+        # PRESERVE ORIGINAL NAMES - only strip whitespace, don't change case or script
+        df['Member'] = df['Member'].astype(str).str.strip()
         
-        # Clean Amounts
+        # Only remove specific label words, keep names in original script
+        df['Member'] = df['Member'].str.replace(r'\b(नाम|सदस्य|name|member|:)\b', '', regex=True, flags=re.IGNORECASE).str.strip()
+        
+        # Filter invalid entries
+        df = df[df['Member'].notna() & (df['Member'] != 'Nan') & (df['Member'] != '') & (df['Member'].str.len() > 1)]
+        
         if 'Amount' in df.columns:
-            df['Amount'] = df['Amount'].astype(str).str.replace(',', '').str.replace('₹', '').str.replace('रुपये', '').str.replace('/-', '').str.strip()
+            df['Amount'] = df['Amount'].astype(str).str.replace(',', '').str.replace('₹', '').str.replace('/-', '').str.strip()
             df['Amount'] = pd.to_numeric(df['Amount'], errors='coerce')
             df = df.dropna(subset=['Amount'])
             df = df[df['Amount'] > 0]
         
-        # Clean Transaction Types (English + Hindi)
         if 'TransactionType' in df.columns:
             type_map = {
-                # English
                 'deposit': 'Repayment', 'credit': 'Repayment', 'save': 'Repayment',
                 'payment': 'Repayment', 'repay': 'Repayment', 'repayment': 'Repayment',
                 'loan': 'Loan', 'borrow': 'Loan', 'advance': 'Loan',
-                # Hindi
-                'जमा': 'Repayment', 'बचत': 'Repayment', 'जमाराशि': 'Repayment',
-                'ऋण': 'Loan', 'कर्ज': 'Loan', 'लोन': 'Loan', 'उधार': 'Loan',
-                'भुगतान': 'Repayment', 'वापसी': 'Repayment', 'चुकौती': 'Repayment'
             }
             df['TransactionType'] = df['TransactionType'].astype(str).str.lower().str.strip()
             df['TransactionType'] = df['TransactionType'].map(type_map).fillna(df['TransactionType'])
             df['TransactionType'] = df['TransactionType'].str.title()
         
-        # Keep only valid transaction types
         valid_types = ['Loan', 'Repayment', 'Deposit']
         df = df[df['TransactionType'].isin(valid_types)]
         
@@ -428,9 +628,9 @@ Example:
             raise ValueError("No valid transactions after cleaning")
         
         print(f"✅ Cleaned data: {len(df)} valid transactions")
+        print(f"📋 Sample members: {df['Member'].unique()[:3].tolist()}")
         return df
 
-    # Keep all the remaining methods from your original file unchanged:
     def extract_temporal_patterns(self, ledger_df: pd.DataFrame) -> Dict:
         """Analyze temporal patterns"""
         if 'Date' not in ledger_df.columns or ledger_df.empty:
@@ -675,7 +875,6 @@ Example:
         print(f"✅ Extracted {len(extracted_text)} characters")
         
         detected_lang, confidence = self.detect_language(extracted_text)
-        print(f"📝 Language: {detected_lang} (confidence: {confidence:.2f})")
         
         ledger_df = self.parse_ledger_data(extracted_text)
         print(f"📊 Parsed {len(ledger_df)} transactions for {ledger_df['Member'].nunique()} members")
@@ -740,35 +939,73 @@ Example:
         return results
 
     def display_results(self, results: Dict):
-        """Display analysis results"""
+        """Display analysis results in detected language"""
+        lang = self.detected_language
+        
         print("\n" + "="*100)
-        print("🏦 SHG LEDGER ANALYSIS RESULTS")
+        print(f"🏦 {self.translate('SHG LEDGER ANALYSIS RESULTS', lang)}")
         print("="*100)
         
-        print(f"📅 Analysis Time: {results['timestamp']}")
-        print(f"🗣 Language: {results['detected_language']} (Confidence: {results['language_confidence']:.2f})")
-        print(f"👥 Total Members: {results['total_members']}")
-        print(f"📊 Total Transactions: {results['total_transactions']}")
-        print(f"💰 Total Amount: ₹{results['total_amount_processed']:,.2f}")
-        print(f"📈 Avg SHG Score: {results['avg_shg_score']:.1f}/100")
-        print(f"💳 Avg Credit Score: {results['avg_credit_score']:.0f}")
+        print(f"📅 {self.translate('Analysis Time', lang)}: {results['timestamp']}")
+        print(f"🗣 {self.translate('Language', lang)}: {results['detected_language']} ({self.translate('Confidence', lang)}: {results['language_confidence']:.2f})")
+        print(f"👥 {self.translate('Total Members', lang)}: {results['total_members']}")
+        print(f"📊 {self.translate('Total Transactions', lang)}: {results['total_transactions']}")
+        print(f"💰 {self.translate('Total Amount', lang)}: ₹{results['total_amount_processed']:,.2f}")
+        print(f"📈 {self.translate('Avg SHG Score', lang)}: {results['avg_shg_score']:.1f}/100")
+        print(f"💳 {self.translate('Avg Credit Score', lang)}: {results['avg_credit_score']:.0f}")
         
-        print(f"\n🎯 MEMBER ANALYSIS:")
+        print(f"\n🎯 {self.translate('MEMBER ANALYSIS', lang)}:")
         print("-" * 130)
-        print(f"{'Member':<16} {'SHG':<8} {'Credit':<8} {'Behavioral':<11} {'Inclusion':<10} {'Eligibility':<12} {'Max Loan':<12} {'Ratio':<8}")
+        print(f"{self.translate('Member', lang):<16} "
+              f"{self.translate('SHG', lang):<8} "
+              f"{self.translate('Credit', lang):<8} "
+              f"{self.translate('Behavioral', lang):<11} "
+              f"{self.translate('Inclusion', lang):<10} "
+              f"{self.translate('Eligibility', lang):<12} "
+              f"{self.translate('MaxLoan', lang):<12} "
+              f"{self.translate('Ratio', lang):<8}")
         print("-" * 130)
         
         sorted_members = sorted(results['member_analysis'].items(), 
                               key=lambda x: x[1]['shg_score'], reverse=True)
         
         for member, data in sorted_members:
+            eligibility = self.translate(data['loan_eligibility']['eligibility_category'], lang)
             print(f"{member[:15]:<16} "
                   f"{data['shg_score']:<8.1f} "
                   f"{data['credit_data']['credit_score']:<8} "
                   f"{data['behavioral_score']:<11.1f} "
                   f"{data['inclusion_score']:<10.1f} "
-                  f"{data['loan_eligibility']['eligibility_category']:<12} "
+                  f"{eligibility:<12} "
                   f"₹{data['loan_eligibility']['max_loan_amount']:<11,} "
                   f"{data['repayment_ratio']:<8.2f}")
         
         print("="*100)
+
+
+def main():
+    """Main execution"""
+    print("="*70)
+    print("🏦 DYNAMIC MULTI-LANGUAGE SHG LEDGER ANALYZER")
+    print("="*70)
+    
+    analyzer = DynamicSHGLedgerAnalyzer(gemini_api_key="AIzaSyDMxyAuav0BJSTNLUdfVRabUTK19uLXr2g")
+    
+    image_path = "ledgerenglishsubhamoy.jpeg"
+    try:
+        results = analyzer.comprehensive_analysis(image_path)
+        analyzer.display_results(results)
+        
+        output_file = 'shg_analysis_results.json'
+        with open(output_file, 'w', encoding='utf-8') as f:
+            json.dump(results, f, indent=2, default=str, ensure_ascii=False)
+        print(f"\n✅ Results saved to {output_file}")
+        
+    except Exception as e:
+        print(f"\n❌ Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
+
+
+if __name__ == "__main__":
+    main()
